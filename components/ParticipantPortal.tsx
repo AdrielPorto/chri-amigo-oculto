@@ -83,6 +83,8 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [result, setResult] = useState<{ drawnName: string; eventName: string } | null>(null);
+  const [revealPhase, setRevealPhase] = useState<'idle' | 'animating' | 'shown'>('idle');
+  const revealTimerRef = useRef<number | null>(null);
 
   const allParticipants = useMemo(() => {
     return [...participantOptions].sort((a, b) => a.name.localeCompare(b.name));
@@ -93,6 +95,34 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
     return ids.size > 1;
   }, [allParticipants]);
 
+  const startRevealAnimation = (participantId: string, payload: { drawnName: string; eventName: string }) => {
+    if (revealTimerRef.current) window.clearTimeout(revealTimerRef.current);
+    const storageKey = `amigo_oculto_reveal_seen_v1:${participantId}`;
+    let hasSeen = false;
+    try {
+      hasSeen = localStorage.getItem(storageKey) === '1';
+    } catch {
+      // ignore (modo privado / bloqueado)
+    }
+
+    setResult(payload);
+
+    if (hasSeen) {
+      setRevealPhase('shown');
+      return;
+    }
+
+    setRevealPhase('animating');
+    revealTimerRef.current = window.setTimeout(() => {
+      setRevealPhase('shown');
+      try {
+        localStorage.setItem(storageKey, '1');
+      } catch {
+        // ignore
+      }
+    }, 3000);
+  };
+
   // Handle auto-reveal from URL parameters
   useEffect(() => {
     let cancelled = false;
@@ -101,7 +131,7 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
       if (!autoReveal?.pid || !autoReveal?.key) return;
       try {
         const res = await revealParticipant(autoReveal.pid, autoReveal.key);
-        if (!cancelled) setResult({ drawnName: res.drawnName, eventName: res.eventName });
+        if (!cancelled) startRevealAnimation(autoReveal.pid, { drawnName: res.drawnName, eventName: res.eventName });
       } catch {
         // Não mostra erro automaticamente no auto-link; só ignora.
       }
@@ -131,7 +161,7 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
     (async () => {
       try {
         const res = await revealParticipant(selectedParticipantId, password);
-        setResult({ drawnName: res.drawnName, eventName: res.eventName });
+        startRevealAnimation(selectedParticipantId, { drawnName: res.drawnName, eventName: res.eventName });
       } catch {
         setError('Essa senha não confere. Tente novamente!');
       }
@@ -139,7 +169,9 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
   };
 
   const handleReset = () => {
+    if (revealTimerRef.current) window.clearTimeout(revealTimerRef.current);
     setResult(null);
+    setRevealPhase('idle');
     setPassword('');
     setSelectedParticipantId('');
     setError('');
@@ -164,12 +196,26 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
             <div className="h-px w-12 bg-amber-400 mx-auto mb-8 opacity-50"></div>
             
             <p className="text-lg font-medium opacity-70 mb-2 italic">Você tirou...</p>
-            <FitOneLineText
-              text={result.drawnName}
-              minPx={14}
-              maxPx={96}
-              className="font-black tracking-tighter uppercase drop-shadow-2xl whitespace-nowrap"
-            />
+            {revealPhase === 'shown' ? (
+              <FitOneLineText
+                text={result.drawnName}
+                minPx={14}
+                maxPx={96}
+                className="font-black tracking-tighter uppercase drop-shadow-2xl whitespace-nowrap"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-4 mt-2">
+                <div className="inline-flex items-center gap-3 bg-white/10 px-5 py-3 rounded-2xl border border-white/15">
+                  <Gift className="w-6 h-6 text-amber-300 animate-bounce" />
+                  <span className="font-black tracking-widest uppercase text-sm sm:text-base animate-pulse">
+                    Sorteando...
+                  </span>
+                </div>
+                <div className="w-full max-w-[min(92vw,42rem)]">
+                  <div className="h-14 sm:h-16 bg-white/15 rounded-2xl animate-pulse" />
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="p-8 sm:p-10 lg:p-12 space-y-8 bg-white">

@@ -68,7 +68,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const copyToClipboard = (p: Participant) => {
-    const text = `Seu amigo oculto (${event.name}):\nNome: ${p.name}\nSenha: ${p.password}\nAcesse: ${window.location.origin}`;
+    const url = `${window.location.origin}?pid=${p.id}&key=${p.password}`;
+    const text =
+      `Oi ${p.name}!\n\n` +
+      `Segue o link direto para ver quem você tirou no Amigo Oculto (${event.name}):\n` +
+      `${url}`;
     navigator.clipboard.writeText(text);
     setCopiedId(p.id);
     setTimeout(() => setCopiedId(null), 2000);
