@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { KeyRound, Lock, ArrowRight, Gift, LogOut, ChevronDown, Sparkles, Users, PartyPopper } from 'lucide-react';
 import type { ParticipantOption } from '../utils/supabaseApi';
 import { revealParticipant } from '../utils/supabaseApi';
@@ -8,6 +8,75 @@ interface ParticipantPortalProps {
   participantOptions: ParticipantOption[];
   autoReveal?: { pid: string; key: string } | null;
 }
+
+const FitOneLineText: React.FC<{
+  text: string;
+  className?: string;
+  minPx?: number;
+  maxPx?: number;
+}> = ({ text, className, minPx = 20, maxPx = 64 }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const textRef = useRef<HTMLDivElement | null>(null);
+  const [fontPx, setFontPx] = useState<number>(maxPx);
+
+  const recompute = () => {
+    const container = containerRef.current;
+    const el = textRef.current;
+    if (!container || !el) return;
+
+    // Reset para tentar o maior primeiro
+    let lo = minPx;
+    let hi = maxPx;
+    let best = minPx;
+
+    // Busca binária pelo maior tamanho que ainda cabe
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      el.style.fontSize = `${mid}px`;
+      // Força cálculo
+      const fits = el.scrollWidth <= container.clientWidth;
+      if (fits) {
+        best = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+
+    setFontPx(best);
+  };
+
+  useLayoutEffect(() => {
+    recompute();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, minPx, maxPx]);
+
+  useEffect(() => {
+    const onResize = () => recompute();
+    window.addEventListener('resize', onResize);
+    // Recalcula após fontes carregarem (evita diferenças desktop/mobile)
+    const anyDoc = document as any;
+    if (anyDoc?.fonts?.ready?.then) {
+      anyDoc.fonts.ready.then(() => recompute()).catch(() => {});
+    }
+    // Recalcula no próximo frame (layout mais estável após render)
+    requestAnimationFrame(() => recompute());
+    return () => window.removeEventListener('resize', onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div ref={containerRef} className="mx-auto w-full px-2 sm:px-0">
+      <div
+        ref={textRef}
+        className={className}
+        style={{ fontSize: `${fontPx}px`, lineHeight: 1.05 }}
+      >
+        {text}
+      </div>
+    </div>
+  );
+};
 
 export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participantOptions = [], autoReveal }) => {
   const [selectedParticipantId, setSelectedParticipantId] = useState('');
@@ -18,6 +87,11 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
   const allParticipants = useMemo(() => {
     return [...participantOptions].sort((a, b) => a.name.localeCompare(b.name));
   }, [participantOptions]);
+
+  const hasMultipleEvents = useMemo(() => {
+    const ids = new Set(allParticipants.map((p) => p.eventId));
+    return ids.size > 1;
+  }, [allParticipants]);
 
   // Handle auto-reveal from URL parameters
   useEffect(() => {
@@ -75,7 +149,7 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
     return (
       <div className="max-w-lg mx-auto animate-in zoom-in-95 fade-in duration-700">
         <div className="bg-white rounded-[48px] shadow-2xl shadow-indigo-200/50 overflow-hidden border border-gray-100">
-          <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-16 text-center text-white relative">
+          <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-10 sm:p-12 lg:p-16 text-center text-white relative">
             <div className="absolute inset-0 opacity-20 pointer-events-none">
               <div className="absolute top-10 left-10 animate-bounce">✨</div>
               <div className="absolute bottom-10 right-10 animate-pulse text-2xl">🥂</div>
@@ -90,12 +164,15 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
             <div className="h-px w-12 bg-amber-400 mx-auto mb-8 opacity-50"></div>
             
             <p className="text-lg font-medium opacity-70 mb-2 italic">Você tirou...</p>
-            <p className="text-6xl font-black tracking-tighter uppercase drop-shadow-2xl">
-              {result.drawnName}
-            </p>
+            <FitOneLineText
+              text={result.drawnName}
+              minPx={14}
+              maxPx={96}
+              className="font-black tracking-tighter uppercase drop-shadow-2xl whitespace-nowrap"
+            />
           </div>
           
-          <div className="p-12 space-y-8 bg-white">
+          <div className="p-8 sm:p-10 lg:p-12 space-y-8 bg-white">
             <div className="bg-indigo-50/50 p-8 rounded-[32px] text-center border border-indigo-100 relative">
               <Sparkles className="absolute -top-3 -right-3 text-indigo-400 w-8 h-8" />
               <p className="text-indigo-900 font-bold text-lg leading-relaxed italic">
@@ -117,13 +194,13 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
 
   return (
     <div className="max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700">
-      <div className="bg-white rounded-[40px] shadow-2xl shadow-indigo-100/50 border border-gray-100 p-12 relative overflow-hidden">
+      <div className="bg-white rounded-[40px] shadow-2xl shadow-indigo-100/50 border border-gray-100 p-6 sm:p-10 lg:p-12 relative overflow-hidden">
         {/* Top Accent */}
         <div className="absolute top-0 left-0 w-full h-2.5 bg-gradient-to-r from-amber-400 via-indigo-600 to-violet-600"></div>
         
-        <div className="flex justify-center mb-10">
-          <div className="bg-gradient-to-br from-indigo-50 to-white p-6 rounded-3xl shadow-inner ring-1 ring-indigo-100">
-            <KeyRound className="text-indigo-600 w-12 h-12" />
+        <div className="flex justify-center mb-8 sm:mb-10">
+          <div className="bg-gradient-to-br from-indigo-50 to-white p-4 sm:p-6 rounded-3xl shadow-inner ring-1 ring-indigo-100">
+            <KeyRound className="text-indigo-600 w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12" />
           </div>
         </div>
 
@@ -149,7 +226,7 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
                 <option value="">Clique para escolher...</option>
                 {allParticipants.map(p => (
                   <option key={p.id} value={p.id}>
-                    {p.name} {events.length > 1 ? `— ${p.eventName}` : ''}
+                    {p.name} {hasMultipleEvents ? `— ${p.eventName}` : ''}
                   </option>
                 ))}
               </select>
@@ -169,7 +246,7 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="6 LETRAS"
-                className="w-full pl-16 pr-6 py-5 rounded-2xl border-2 border-gray-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all placeholder:text-gray-200 font-mono text-center tracking-[0.8em] text-xl uppercase font-black text-indigo-600 bg-gray-50/50"
+                className="w-full pl-14 sm:pl-16 pr-4 sm:pr-6 py-4 sm:py-5 rounded-2xl border-2 border-gray-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all placeholder:text-gray-200 font-mono text-center tracking-[0.35em] sm:tracking-[0.8em] text-lg sm:text-xl uppercase font-black text-indigo-600 bg-gray-50/50"
                 required
               />
             </div>
@@ -183,7 +260,7 @@ export const ParticipantPortal: React.FC<ParticipantPortalProps> = ({ participan
 
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white py-6 rounded-[24px] font-black text-xl hover:shadow-2xl hover:shadow-indigo-200 hover:-translate-y-1 transition-all active:scale-95 group"
+            className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white py-5 sm:py-6 rounded-[24px] font-black text-lg sm:text-xl hover:shadow-2xl hover:shadow-indigo-200 hover:-translate-y-1 transition-all active:scale-95 group"
           >
             REVELAR MEU AMIGO <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
           </button>

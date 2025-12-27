@@ -135,7 +135,23 @@ declare
   i int;
   cur uuid;
   nxt uuid;
+  v_is_drawn boolean;
 begin
+  -- Trava o evento (evita 2 sorteios concorrentes) e valida existência
+  select e.is_drawn
+    into v_is_drawn
+  from public.secret_santa_events e
+  where e.id = p_event_id
+  for update;
+
+  if v_is_drawn is null then
+    raise exception 'Evento não encontrado.';
+  end if;
+
+  if v_is_drawn then
+    raise exception 'Este evento já foi sorteado. Use "Resetar Sorteio" para sortear novamente.';
+  end if;
+
   select array_agg(id order by random()) into ids
   from public.secret_santa_participants
   where event_id = p_event_id;
@@ -143,6 +159,9 @@ begin
   n := coalesce(array_length(ids, 1), 0);
   if n < 2 then
     raise exception 'Adicione pelo menos 2 participantes para o sorteio.';
+  end if;
+  if (n % 2) <> 0 then
+    raise exception 'Para este sorteio, a quantidade de participantes precisa ser PAR.';
   end if;
 
   -- Limpa antes (evita estados intermediários)

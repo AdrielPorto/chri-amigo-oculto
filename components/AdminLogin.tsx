@@ -24,14 +24,14 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, storedPassword 
 
   return (
     <div className="max-w-md mx-auto animate-in fade-in zoom-in-95 duration-500">
-      <div className="bg-white p-12 rounded-[40px] shadow-2xl shadow-gray-200/50 border border-gray-100 relative overflow-hidden">
+      <div className="bg-white p-6 sm:p-10 lg:p-12 rounded-[40px] shadow-2xl shadow-gray-200/50 border border-gray-100 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1.5 bg-gray-900"></div>
         
         <div className="flex flex-col items-center mb-10">
-          <div className="bg-gray-50 p-6 rounded-3xl mb-6 shadow-inner ring-1 ring-gray-100">
-            <ShieldCheck className="text-gray-900 w-10 h-10" />
+          <div className="bg-gray-50 p-4 sm:p-6 rounded-3xl mb-6 shadow-inner ring-1 ring-gray-100">
+            <ShieldCheck className="text-gray-900 w-9 h-9 sm:w-10 sm:h-10" />
           </div>
-          <h2 className="text-3xl font-black text-gray-900 tracking-tight">Admin Portal</h2>
+          <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Admin Portal</h2>
           <p className="text-gray-500 text-sm font-medium mt-3 text-center leading-relaxed">
             Identifique-se para gerenciar os <br/>sorteios da irmandade.
           </p>
@@ -47,7 +47,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, storedPassword 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-14 pr-6 py-5 rounded-2xl border border-gray-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all font-bold text-lg bg-gray-50/50"
+                className="w-full pl-14 pr-6 py-4 sm:py-5 rounded-2xl border border-gray-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none transition-all font-bold text-lg bg-gray-50/50"
                 required
               />
             </div>
